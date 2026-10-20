@@ -17,3 +17,9 @@ A file that belongs to no subject and no topic, e.g. a single `costy-taxi_task-0
 
 **Sorting order**
 How a file's home is chosen: by **subject** if its name has a subject code, otherwise by **topic** if it has siblings, otherwise by **type**.
+
+**Run**
+One pass of the sorter over Downloads, whether started on a schedule or by hand.
+
+**Settled file**
+A file that is not in use and has not changed for a set time. Only settled files are sorted; unsettled files wait for a later run.
