@@ -28,5 +28,9 @@ How a file's home is chosen: by **subject** if its name has a subject code, othe
 **Run**
 One pass of the sorter over Downloads, whether started on a schedule or by hand.
 
+**Sorted file**
+A file the sorter moved that is still where it put it, under the same name. Only sorted files are ever moved again. A file the user has moved or renamed is no longer a sorted file: the sorter leaves it alone for good.
+_Avoid_: managed file, tracked file
+
 **Settled file**
 A file that is not in use and has not changed for a set time. Only settled files are sorted; unsettled files wait for a later run.
