@@ -66,6 +66,21 @@ public sealed class SortRunTests : IDisposable
     }
 
     [Fact]
+    public void Subject_file_goes_to_school_code_folder_not_type_folder()
+    {
+        Put("BIE-AG1.21_ukol2.opp", "x");
+        Put("mi-fit.apk", "y");
+
+        var result = SortRun.Execute(new DiskFolderReader(), new DiskFileMover(), new FixedClock(),
+            new MoveLog(logPath), downloads, runId: "r1", subjects: new SubjectClassifier(["MI-FIT"]));
+
+        Assert.Equal(2, result.Moved);
+        Assert.Equal("x", File.ReadAllText(Path.Combine(downloads, "School", "BI-AG1", "BIE-AG1.21_ukol2.opp")));
+        Assert.False(Directory.Exists(Path.Combine(downloads, "OpenPonk")));
+        Assert.True(File.Exists(Path.Combine(downloads, "Other", "mi-fit.apk")));
+    }
+
+    [Fact]
     public void Creates_type_folder_only_when_a_file_goes_into_it()
     {
         Put("a.pdf", "x");

@@ -25,12 +25,13 @@ public static class App
         var path = args.Length > 1
             ? args[1]
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        var subjects = new SubjectClassifier(settings.NotASubject);
         if (args[0] == "--preview")
         {
-            viewer.Show(Preview.Build(folder, path, clock, settings.Types));
+            viewer.Show(Preview.Build(folder, path, clock, settings.Types, subjects));
             return 0;
         }
-        SortRun.Execute(folder, mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path, settings.Types);
+        SortRun.Execute(folder, mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path, settings.Types, subjects: subjects);
         return 0;
     }
 }
