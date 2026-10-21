@@ -23,10 +23,10 @@ public sealed class UndoAppTests : IDisposable
         File.WriteAllText(Path.Combine(downloads, "a.pdf"), "A");
         var logPath = Path.Combine(root, "log", "move.log");
 
-        Assert.Equal(0, App.Run(["--sort", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(), logPath: logPath));
+        Assert.Equal(0, App.Run(["--sort", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(), logPath: logPath, settingsStore: new SettingsStore(Path.Combine(root, "settings.json"))));
         Assert.False(File.Exists(Path.Combine(downloads, "a.pdf")));
 
-        Assert.Equal(0, App.Run(["--undo", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(), logPath: logPath));
+        Assert.Equal(0, App.Run(["--undo", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(), logPath: logPath, settingsStore: new SettingsStore(Path.Combine(root, "settings.json"))));
         Assert.Equal("A", File.ReadAllText(Path.Combine(downloads, "a.pdf")));
     }
 }
