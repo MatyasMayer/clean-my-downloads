@@ -14,7 +14,7 @@ public sealed class TypeTable
                 folderByExtension["." + ext] = folder;
     }
 
-    public static TypeTable Default { get; } = new(new Dictionary<string, string[]>
+    public static IReadOnlyDictionary<string, string[]> DefaultFolders { get; } = new Dictionary<string, string[]>
     {
         ["Pictures"] = ["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "svg"],
         ["Videos"] = ["mp4", "mov", "mkv", "avi", "webm"],
@@ -23,7 +23,9 @@ public sealed class TypeTable
         ["Archives"] = ["zip", "rar", "7z", "tar", "gz"],
         ["Installers"] = ["exe", "msi"],
         ["OpenPonk"] = ["opp"],
-    });
+    };
+
+    public static TypeTable Default { get; } = new(DefaultFolders);
 
     public string FolderFor(string fileName) =>
         folderByExtension.TryGetValue(Path.GetExtension(fileName), out var folder) ? folder : OtherFolder;
