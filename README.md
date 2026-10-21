@@ -29,7 +29,7 @@ Tests: `dotnet test`, and `powershell -File tests\scripts\Test-InstallScripts.ps
 
 The whole project was built with Claude Code and the [mattpocock-skills](https://github.com/mattpocock/skills) plugin, in stages:
 
-1. **Planning.** The idea started as one planning map issue ([#1](https://github.com/MatyasMayer/clean-my-downloads/issues/1)) with a ticket per open question (layout, safety net, run schedule, subject codes, topic grouping, type table, tech stack…). Each question was settled in turn, and the answers were recorded on its ticket.
+1. **Planning.** The project started with `wayfinder`, which created one planning map issue ([#1](https://github.com/MatyasMayer/clean-my-downloads/issues/1)) with a ticket per open question (layout, safety net, run schedule, subject codes, topic grouping, type table, tech stack…). Each question was settled in turn, and the answers were recorded on its ticket.
    - `grilling` and `domain-modeling` stress-tested the decisions and produced [GLOSSARY.md](GLOSSARY.md).
    - `research` looked at what real FIT subject codes look like (branch `research/subject-codes`).
    - `prototype` tried out the topic-grouping logic before it was built (branch `prototype/topic-grouping`).
