@@ -21,6 +21,8 @@ public sealed class UndoAppTests : IDisposable
         var downloads = Path.Combine(root, "Downloads");
         Directory.CreateDirectory(downloads);
         File.WriteAllText(Path.Combine(downloads, "a.pdf"), "A");
+        File.SetCreationTime(Path.Combine(downloads, "a.pdf"), DateTime.Now.AddDays(-2));
+        File.SetLastWriteTime(Path.Combine(downloads, "a.pdf"), DateTime.Now.AddDays(-2));
         var logPath = Path.Combine(root, "log", "move.log");
 
         Assert.Equal(0, App.Run(["--sort", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(), logPath: logPath, settingsStore: new SettingsStore(Path.Combine(root, "settings.json"))));
