@@ -1,19 +1,22 @@
 namespace CleanMyDownloads.Core;
 
-public sealed record SortRunResult(string RunId, int Moved, int Duplicates, int Skipped, int Failed);
+public sealed record SortRunResult(string RunId, int Moved, int Duplicates, int Skipped, int Failed, int Waiting = 0);
 
 /// <summary>SPEC sections 1 and 6: sort top-level files into type folders, logging every action.</summary>
 public static class SortRun
 {
     public static SortRunResult Execute(IFolderReader folder, IFileMover mover, IClock clock, MoveLog log,
-        string path, TypeTable? types = null, string? runId = null)
+        string path, TypeTable? types = null, string? runId = null,
+        IInUseCheck? inUse = null, SettleWait? wait = null)
     {
+        inUse ??= new DiskInUseCheck();
+        wait ??= SettleWait.Default;
         types ??= TypeTable.Default;
         runId ??= Guid.NewGuid().ToString("N")[..8];
         var shown = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
         string Show(string full) => Path.Combine(shown, Path.GetRelativePath(path, full));
 
-        int moved = 0, duplicates = 0, skipped = 0, failed = 0;
+        int moved = 0, duplicates = 0, skipped = 0, failed = 0, waiting = 0;
         log.RunStart(clock.Now, runId);
 
         foreach (var file in folder.ListTopLevelFiles(path).Where(f => !IgnoreRules.IsIgnored(f)))
@@ -25,6 +28,17 @@ public static class SortRun
                 if (!File.Exists(source))
                 {
                     log.Skipped(clock.Now, Show(source), "file no longer exists");
+                    skipped++;
+                    continue;
+                }
+                if (SettledRules.WaitingUntil(file, wait, clock.Now) != null)
+                {
+                    waiting++;
+                    continue;
+                }
+                if (inUse.IsInUse(source))
+                {
+                    log.Skipped(clock.Now, Show(source), "in use, will retry next run");
                     skipped++;
                     continue;
                 }
@@ -47,15 +61,16 @@ public static class SortRun
         }
 
         log.RunEnd(clock.Now, runId);
-        return new SortRunResult(runId, moved, duplicates, skipped, failed);
+        return new SortRunResult(runId, moved, duplicates, skipped, failed, waiting);
     }
 
     /// <summary>First free name (Windows-style suffix), or the existing byte-identical file.</summary>
-    static string ResolveTarget(string source, string typeDir, out string? identicalTo)
+    internal static string ResolveTarget(string source, string typeDir, out string? identicalTo, string? fileName = null)
     {
         identicalTo = null;
-        var name = Path.GetFileNameWithoutExtension(source);
-        var ext = Path.GetExtension(source);
+        fileName ??= Path.GetFileName(source);
+        var name = Path.GetFileNameWithoutExtension(fileName);
+        var ext = Path.GetExtension(fileName);
         var candidate = Path.Combine(typeDir, name + ext);
         for (var n = 2; File.Exists(candidate); n++)
         {

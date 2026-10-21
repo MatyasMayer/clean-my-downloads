@@ -7,6 +7,8 @@ public sealed class DiskFolderReader : IFolderReader
             .Select(f => new FileEntry(
                 f.Name,
                 f.Attributes.HasFlag(FileAttributes.Hidden),
-                f.Attributes.HasFlag(FileAttributes.System)))
+                f.Attributes.HasFlag(FileAttributes.System),
+                f.CreationTime,
+                f.LastWriteTime))
             .ToList();
 }
