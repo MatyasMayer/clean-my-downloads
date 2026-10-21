@@ -24,15 +24,28 @@ public static class SortRun
         int moved = 0, duplicates = 0, skipped = 0, failed = 0, waiting = 0;
         log.RunStart(clock.Now, runId);
 
-        var placements = SortPlanner.Plan(
-            folder.ListTopLevelFiles(path).Where(f => !IgnoreRules.IsIgnored(f)).ToList(),
-            ExistingFoldersIn(folder, path), plan, clock.Now);
-        foreach (var (file, _, destination, waitingUntil) in placements)
+        var sorted = SortedFiles.From(File.Exists(log.Path) ? File.ReadAllLines(log.Path) : [], shown);
+        var candidates = folder.ListTopLevelFiles(path).Where(f => !IgnoreRules.IsIgnored(f)).Select(f => (Dir: "", File: f)).ToList();
+        foreach (var group in sorted.Paths.GroupBy(p => Path.GetDirectoryName(p)!, StringComparer.OrdinalIgnoreCase))
         {
-            var source = Path.Combine(path, file.Name);
+            if (!Directory.Exists(Path.Combine(path, group.Key))) continue;
+            var names = group.Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            candidates.AddRange(folder.ListTopLevelFiles(Path.Combine(path, group.Key))
+                .Where(f => names.Contains(f.Name) && !IgnoreRules.IsIgnored(f)).Select(f => (Dir: group.Key, File: f)));
+        }
+        var planned = SortPlanner.Plan(candidates.Select(c => c.File).ToList(),
+            ExistingFoldersIn(folder, path), plan, clock.Now);
+        for (var i = 0; i < planned.Count; i++)
+        {
+            var (file, _, destination, plannedWait) = planned[i];
+            var fromDir = candidates[i].Dir;
+            // A sorted file has already settled once; editing it in place doesn't make it wait again.
+            var waitingUntil = fromDir == "" ? plannedWait : null;
+            var source = Path.Combine(path, fromDir, file.Name);
             var typeDir = Path.Combine(path, destination);
             try
             {
+                if (string.Equals(fromDir, destination, StringComparison.OrdinalIgnoreCase)) continue;
                 if (!File.Exists(source))
                 {
                     log.Skipped(clock.Now, Show(source), "file no longer exists");
@@ -60,6 +73,7 @@ public static class SortRun
                 mover.Move(source, target);
                 log.Moved(clock.Now, Show(source), Show(target));
                 moved++;
+                if (fromDir != "") RemoveIfSorterEmptied(path, fromDir, sorted);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
@@ -70,6 +84,15 @@ public static class SortRun
 
         log.RunEnd(clock.Now, runId);
         return new SortRunResult(runId, moved, duplicates, skipped, failed, waiting);
+    }
+
+    /// <summary>The only deletion the sorter makes: a folder it created, left empty by a re-sort move.</summary>
+    static void RemoveIfSorterEmptied(string root, string relDir, SortedFiles sorted)
+    {
+        var dir = Path.Combine(root, relDir);
+        if (sorted.CreatedFolders.Contains(relDir, StringComparer.OrdinalIgnoreCase)
+            && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+            Directory.Delete(dir);
     }
 
     internal static ExistingFolders ExistingFoldersIn(IFolderReader folder, string path) => new(

@@ -63,6 +63,9 @@ public static class UndoRun
     {
         if (string.Equals(Path.TrimEndingDirectorySeparator(dir), Path.TrimEndingDirectorySeparator(root),
                 StringComparison.OrdinalIgnoreCase)) return;
-        if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any()) Directory.Delete(dir);
+        if (!Directory.Exists(dir) || Directory.EnumerateFileSystemEntries(dir).Any()) return;
+        Directory.Delete(dir);
+        // Topics\ and School\ exist only because a folder went into them.
+        RemoveIfEmpty(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(dir))!, root);
     }
 }
