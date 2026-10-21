@@ -34,7 +34,7 @@ public sealed class AppSettingsTests : IDisposable
         var viewer = new Viewer();
 
         var code = App.Run(["--preview", @"C:\x"], new Folder(new FileEntry("s.blend", false, false)),
-            new SystemClock(), viewer, new SettingsStore(file));
+            new SystemClock(), viewer, settingsStore: new SettingsStore(file));
 
         Assert.Equal(0, code);
         Assert.Contains("s.blend -> OpenPonk", viewer.Shown);
@@ -49,7 +49,8 @@ public sealed class AppSettingsTests : IDisposable
         var viewer = new Viewer();
         string? reported = null;
 
-        var code = App.Run(["--preview"], folder, new SystemClock(), viewer, new SettingsStore(file), m => reported = m);
+        var code = App.Run(["--preview"], folder, new SystemClock(), viewer,
+            settingsStore: new SettingsStore(file), reportInvalidSettings: m => reported = m);
 
         Assert.NotEqual(0, code);
         Assert.False(folder.Read);

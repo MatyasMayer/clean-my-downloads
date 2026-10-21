@@ -27,7 +27,7 @@ public class AppTests
         var folder = new FakeFolder(new FileEntry("a.png", false, false));
         var viewer = new RecordingViewer();
 
-        var code = App.Run(["--preview", @"C:\scratch"], folder, new SystemClock(), viewer, TempStore());
+        var code = App.Run(["--preview", @"C:\scratch"], folder, new SystemClock(), viewer, settingsStore: TempStore());
 
         Assert.Equal(0, code);
         Assert.Equal(@"C:\scratch", folder.PathRead);
@@ -39,7 +39,7 @@ public class AppTests
     {
         var folder = new FakeFolder();
 
-        App.Run(["--preview"], folder, new SystemClock(), new RecordingViewer(), TempStore());
+        App.Run(["--preview"], folder, new SystemClock(), new RecordingViewer(), settingsStore: TempStore());
 
         Assert.EndsWith("Downloads", folder.PathRead);
     }
