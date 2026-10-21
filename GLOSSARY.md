@@ -1,7 +1,7 @@
 # Glossary
 
 **Subject**
-A school course, identified by a **subject code** such as `BI-AG1` appearing in a file's name. Files with the same subject code belong together, whatever their type. A **bare code** (`ag1` without the `BI-`) also counts when exactly one known subject has that code.
+A school course, identified by a **subject code** such as `BI-AG1` appearing in a file's name. Files with the same subject code belong together, whatever their type. Variants of one course are one subject: `BI-AG1.21`, `BIE-AG1` and `BIK-AG1` are all `BI-AG1`. A **bare code** (`ag1` without the `BI-`) also counts when exactly one known subject has that code.
 _Avoid_: course, class
 
 **Topic**
