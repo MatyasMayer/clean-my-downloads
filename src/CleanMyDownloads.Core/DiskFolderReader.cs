@@ -1,0 +1,19 @@
+namespace CleanMyDownloads.Core;
+
+public sealed class DiskFolderReader : IFolderReader
+{
+    public IReadOnlyList<FileEntry> ListTopLevelFiles(string path) =>
+        new DirectoryInfo(path).EnumerateFiles()
+            .Select(f => new FileEntry(
+                f.Name,
+                f.Attributes.HasFlag(FileAttributes.Hidden),
+                f.Attributes.HasFlag(FileAttributes.System),
+                f.CreationTime,
+                f.LastWriteTime))
+            .ToList();
+
+    public IReadOnlyList<string> ListSubfolderNames(string path) =>
+        Directory.Exists(path)
+            ? new DirectoryInfo(path).EnumerateDirectories().Select(d => d.Name).ToList()
+            : [];
+}
