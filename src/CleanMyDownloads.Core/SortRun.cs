@@ -7,11 +7,12 @@ public static class SortRun
 {
     public static SortRunResult Execute(IFolderReader folder, IFileMover mover, IClock clock, MoveLog log,
         string path, TypeTable? types = null, string? runId = null,
-        IInUseCheck? inUse = null, SettleWait? wait = null)
+        IInUseCheck? inUse = null, SettleWait? wait = null, SubjectClassifier? subjects = null)
     {
         inUse ??= new DiskInUseCheck();
         wait ??= SettleWait.Default;
         types ??= TypeTable.Default;
+        subjects ??= SubjectClassifier.Default;
         runId ??= Guid.NewGuid().ToString("N")[..8];
         var shown = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
         string Show(string full) => Path.Combine(shown, Path.GetRelativePath(path, full));
@@ -22,7 +23,7 @@ public static class SortRun
         foreach (var file in folder.ListTopLevelFiles(path).Where(f => !IgnoreRules.IsIgnored(f)))
         {
             var source = Path.Combine(path, file.Name);
-            var typeDir = Path.Combine(path, types.FolderFor(file.Name));
+            var typeDir = Path.Combine(path, subjects.DestinationFor(file.Name) ?? types.FolderFor(file.Name));
             try
             {
                 if (!File.Exists(source))

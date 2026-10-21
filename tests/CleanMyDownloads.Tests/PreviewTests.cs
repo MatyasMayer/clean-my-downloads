@@ -35,6 +35,25 @@ public class PreviewTests
     }
 
     [Fact]
+    public void Subject_wins_over_type_and_respects_the_not_a_subject_list()
+    {
+        var folder = new FakeFolder(
+            new("BI-AG1.21_ukol2.opp", false, false),
+            new("bi-zma-01-uvod.pdf", false, false),
+            new("mi-fit.apk", false, false));
+
+        var text = Preview.Build(folder, @"C:\scratch", new FixedClock(),
+            subjects: new SubjectClassifier(["MI-FIT"]));
+
+        Assert.Equal(
+            "Preview sort of C:\\scratch (2026-10-21 14:00)\r\n" +
+            "BI-AG1.21_ukol2.opp -> School\\BI-AG1\r\n" +
+            "bi-zma-01-uvod.pdf -> School\\BI-ZMA\r\n" +
+            "mi-fit.apk -> Other\r\n",
+            text);
+    }
+
+    [Fact]
     public void Says_so_when_nothing_to_sort()
     {
         var text = Preview.Build(new FakeFolder(), @"C:\scratch", new FixedClock());

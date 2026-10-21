@@ -11,7 +11,7 @@ public static class App
     /// </summary>
     public static int Run(string[] args, IFolderReader folder, IClock clock, IDocumentViewer viewer,
         IFileMover? mover = null, string? logPath = null,
-        SettingsStore? settingsStore = null, Action<string>? reportInvalidSettings = null)
+        SettingsStore? settingsStore = null, Action<string>? reportInvalidSettings = null, INotifier? notifier = null)
     {
         if (args.Length == 0 || args[0] is not ("--preview" or "--sort" or "--undo"))
             return 2;
@@ -19,15 +19,17 @@ public static class App
         if (loaded is SettingsResult.Invalid invalid)
         {
             reportInvalidSettings?.Invoke(invalid.Message);
+            notifier?.Notify("Clean my downloads: invalid settings", invalid.Message);
             return 3;
         }
         var settings = ((SettingsResult.Loaded)loaded).Settings;
         var path = args.Length > 1
             ? args[1]
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        var subjects = new SubjectClassifier(settings.NotASubject);
         if (args[0] == "--preview")
         {
-            viewer.Show(Preview.Build(folder, path, clock, settings.Types));
+            viewer.Show(Preview.Build(folder, path, clock, settings.Types, subjects: subjects));
             return 0;
         }
         if (args[0] == "--undo")
@@ -35,7 +37,11 @@ public static class App
             UndoRun.Execute(mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path);
             return 0;
         }
-        SortRun.Execute(folder, mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path, settings.Types);
+        var result = SortRun.Execute(folder, mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path, settings.Types, subjects: subjects);
+        if (result.Moved >= NotifyThreshold)
+            notifier?.Notify("Clean my downloads", $"Sorted {result.Moved} files.");
         return 0;
     }
+
+    const int NotifyThreshold = 3;
 }
