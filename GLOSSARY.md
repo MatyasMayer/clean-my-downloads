@@ -20,7 +20,7 @@ The broad kind of a file (video, PDF, image, OpenPonk model, …), judged by its
 _Avoid_: format, extension (an extension is how the type is detected, not the type itself)
 
 **Loose file**
-A file that belongs to no subject and no topic, e.g. a single `costy-taxi_task-05.opp` with no siblings. What happens to loose files is still undecided.
+A file that belongs to no subject and no topic, e.g. a single `costy-taxi_task-05.opp` with no siblings. A loose file waits a while in case a sibling arrives, then is sorted by type. It stops being loose as soon as a sibling turns up, even after it has been sorted by type.
 
 **Sorting order**
 How a file's home is chosen: by **subject** if its name has a subject code, otherwise by **topic** if it has siblings, otherwise by **type**.
