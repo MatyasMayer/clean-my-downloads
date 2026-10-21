@@ -65,11 +65,12 @@ public static class SortRun
     }
 
     /// <summary>First free name (Windows-style suffix), or the existing byte-identical file.</summary>
-    static string ResolveTarget(string source, string typeDir, out string? identicalTo)
+    internal static string ResolveTarget(string source, string typeDir, out string? identicalTo, string? fileName = null)
     {
         identicalTo = null;
-        var name = Path.GetFileNameWithoutExtension(source);
-        var ext = Path.GetExtension(source);
+        fileName ??= Path.GetFileName(source);
+        var name = Path.GetFileNameWithoutExtension(fileName);
+        var ext = Path.GetExtension(fileName);
         var candidate = Path.Combine(typeDir, name + ext);
         for (var n = 2; File.Exists(candidate); n++)
         {
