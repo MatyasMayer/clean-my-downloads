@@ -37,8 +37,4 @@ public sealed partial class SubjectClassifier
         }
         return null;
     }
-
-    /// <summary>Destination folder relative to the sorted folder, or null when not a subject.</summary>
-    public string? DestinationFor(string fileName) =>
-        FolderFor(fileName) is { } code ? Path.Combine(SchoolFolder, code) : null;
 }

@@ -148,6 +148,15 @@ public class SortPlannerTests
         Assert.Equal(Topic("task"), plan["task-1.pdf"]);
     }
 
+    [Fact]
+    public void A_stem_that_matches_two_separate_groups_merges_them()
+    {
+        // "abc" and "ab-cd" are different topics, but "abc-d" is the same as both.
+        var plan = Plan(["abc.pdf", "ab-cd.pdf", "abc-d.pdf"]);
+
+        Assert.All(plan.Values, v => Assert.Equal(Topic("abc"), v));
+    }
+
     static Placement One(FileEntry f) =>
         SortPlanner.Plan([f], new ExistingFolders([], []), PlanOptions.Default, Now).Single();
 

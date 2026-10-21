@@ -65,7 +65,7 @@ public sealed class NotificationTests : IDisposable
         var notifier = new RecordingNotifier();
 
         var code = App.Run(["--sort"], new DiskFolderReader(), new SystemClock(), new NoViewer(),
-            settingsStore: new SettingsStore(file), notifier: notifier);
+            settingsStore: new SettingsStore(file), notifier: notifier, logPath: Path.Combine(root, "move.log"));
 
         Assert.Equal(3, code);
         var shown = Assert.Single(notifier.Shown);

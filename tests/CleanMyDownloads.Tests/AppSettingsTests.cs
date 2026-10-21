@@ -41,6 +41,32 @@ public sealed class AppSettingsTests : IDisposable
     }
 
     [Fact]
+    public void Invalid_settings_are_also_written_to_the_move_log()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, "{ nope");
+        var logPath = Path.Combine(Path.GetDirectoryName(file)!, "move.log");
+
+        App.Run(["--sort", @"C:\x"], new Folder(), new SystemClock(), new Viewer(),
+            logPath: logPath, settingsStore: new SettingsStore(file));
+
+        Assert.Contains("JSON", File.ReadAllText(logPath));
+    }
+
+    [Fact]
+    public void Init_settings_writes_defaults_and_nothing_else()
+    {
+        var logPath = Path.Combine(Path.GetDirectoryName(file)!, "move.log");
+
+        var code = App.Run(["--init-settings"], new Folder(), new SystemClock(), new Viewer(),
+            logPath: logPath, settingsStore: new SettingsStore(file));
+
+        Assert.Equal(0, code);
+        Assert.True(File.Exists(file));
+        Assert.False(File.Exists(logPath));
+    }
+
+    [Fact]
     public void Invalid_settings_skip_the_run_and_report_what_is_wrong()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
@@ -50,7 +76,8 @@ public sealed class AppSettingsTests : IDisposable
         string? reported = null;
 
         var code = App.Run(["--preview"], folder, new SystemClock(), viewer,
-            settingsStore: new SettingsStore(file), reportInvalidSettings: m => reported = m);
+            settingsStore: new SettingsStore(file), reportInvalidSettings: m => reported = m,
+            logPath: Path.Combine(Path.GetDirectoryName(file)!, "move.log"));
 
         Assert.NotEqual(0, code);
         Assert.False(folder.Read);

@@ -41,12 +41,9 @@ try {
     if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
 }
 
-# 2. Default settings: the sorter writes them itself when missing, so a run on an empty folder does it.
+# 2. Default settings: the sorter writes them itself when missing; --init-settings does only that (no move.log entries).
 if (-not $SkipSettingsInit -and -not (Test-Path $settings)) {
-    $empty = Join-Path ([IO.Path]::GetTempPath()) ("cmd-empty-" + [guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory $empty | Out-Null
-    try { Start-Process $exe -ArgumentList '--sort', "`"$empty`"" -Wait -WindowStyle Hidden }
-    finally { Remove-Item $empty -Recurse -Force }
+    Start-Process $exe -ArgumentList '--init-settings' -Wait -WindowStyle Hidden
 }
 
 # 3. Hourly task: catch up missed runs, run on battery, no window.

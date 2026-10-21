@@ -13,7 +13,53 @@ public sealed class UndoAppTests : IDisposable
         public void Show(string text) { }
     }
 
+    sealed class RecordingViewer : IDocumentViewer
+    {
+        public string? Shown;
+        public void Show(string text) => Shown = text;
+    }
+
     public void Dispose() => Directory.Delete(root, true);
+
+    string SortOneFile(string downloads, string logPath, SettingsStore store)
+    {
+        Directory.CreateDirectory(downloads);
+        File.WriteAllText(Path.Combine(downloads, "a.pdf"), "A");
+        File.SetCreationTime(Path.Combine(downloads, "a.pdf"), DateTime.Now.AddDays(-2));
+        File.SetLastWriteTime(Path.Combine(downloads, "a.pdf"), DateTime.Now.AddDays(-2));
+        App.Run(["--sort", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(), logPath: logPath, settingsStore: store);
+        return downloads;
+    }
+
+    [Fact]
+    public void Undo_does_not_need_valid_settings()
+    {
+        var downloads = Path.Combine(root, "Downloads");
+        var logPath = Path.Combine(root, "log", "move.log");
+        var store = new SettingsStore(Path.Combine(root, "settings.json"));
+        SortOneFile(downloads, logPath, store);
+        File.WriteAllText(store.FilePath, "{ nope");
+
+        var code = App.Run(["--undo", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(), logPath: logPath, settingsStore: store);
+
+        Assert.Equal(0, code);
+        Assert.True(File.Exists(Path.Combine(downloads, "a.pdf")));
+    }
+
+    [Fact]
+    public void Undo_shows_the_files_it_had_to_skip()
+    {
+        var downloads = Path.Combine(root, "Downloads");
+        var logPath = Path.Combine(root, "log", "move.log");
+        var store = new SettingsStore(Path.Combine(root, "settings.json"));
+        SortOneFile(downloads, logPath, store);
+        File.Delete(Path.Combine(downloads, "Documents", "a.pdf"));
+        var viewer = new RecordingViewer();
+
+        App.Run(["--undo", downloads], new DiskFolderReader(), new SystemClock(), viewer, logPath: logPath, settingsStore: store);
+
+        Assert.Contains("a.pdf", viewer.Shown);
+    }
 
     [Fact]
     public void Undo_mode_reverses_the_last_sort_of_the_given_folder()

@@ -2,7 +2,10 @@ namespace CleanMyDownloads.Core;
 
 public sealed record SortRunResult(string RunId, int Moved, int Duplicates, int Skipped, int Failed, int Waiting = 0);
 
-/// <summary>SPEC sections 1 and 6: sort top-level files into type folders, logging every action.</summary>
+/// <summary>
+/// SPEC sections 2, 5 and 6: sort top-level files into subject, topic and type folders, re-sort files the sorter
+/// sorted earlier, and log every action.
+/// </summary>
 public static class SortRun
 {
     public static SortRunResult Execute(IFolderReader folder, IFileMover mover, IClock clock, MoveLog log,
@@ -11,73 +14,64 @@ public static class SortRun
         PlanOptions? plan = null)
     {
         inUse ??= new DiskInUseCheck();
-        plan ??= PlanOptions.Default with
-        {
-            Types = types ?? TypeTable.Default,
-            Subjects = subjects ?? SubjectClassifier.Default,
-            Wait = wait ?? SettleWait.Default,
-        };
+        plan = PlanOptions.Resolve(plan, types, subjects, wait);
         runId ??= Guid.NewGuid().ToString("N")[..8];
-        var shown = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
-        string Show(string full) => Path.Combine(shown, Path.GetRelativePath(path, full));
+        var folderName = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        string Logged(string full) => Path.Combine(folderName, Path.GetRelativePath(path, full));
 
         int moved = 0, duplicates = 0, skipped = 0, failed = 0, waiting = 0;
         log.RunStart(clock.Now, runId);
 
-        var sorted = SortedFiles.From(File.Exists(log.Path) ? File.ReadAllLines(log.Path) : [], shown);
-        var candidates = folder.ListTopLevelFiles(path).Where(f => !IgnoreRules.IsIgnored(f)).Select(f => (Dir: "", File: f)).ToList();
-        foreach (var group in sorted.Paths.GroupBy(p => Path.GetDirectoryName(p)!, StringComparer.OrdinalIgnoreCase))
+        var sortPlan = SortPlan.Build(folder, path, File.Exists(log.Path) ? File.ReadAllLines(log.Path) : [], plan, clock.Now);
+        var busy = new Dictionary<PlannedMove, bool>();
+        bool IsBusy(PlannedMove m) => busy.TryGetValue(m, out var b) ? b : busy[m] = inUse.IsInUse(m.From.Source(path));
+        bool CanMoveNow(PlannedMove m) => File.Exists(m.From.Source(path)) && m.WaitingUntil == null && !IsBusy(m);
+
+        // Decided up front: siblings must be judged before this run's own moves change the folder.
+        var heldBack = sortPlan.Moves.Where(m => sortPlan.IsHeldBack(m, CanMoveNow)).ToHashSet();
+
+        foreach (var move in sortPlan.Moves)
         {
-            if (!Directory.Exists(Path.Combine(path, group.Key))) continue;
-            var names = group.Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            candidates.AddRange(folder.ListTopLevelFiles(Path.Combine(path, group.Key))
-                .Where(f => names.Contains(f.Name) && !IgnoreRules.IsIgnored(f)).Select(f => (Dir: group.Key, File: f)));
-        }
-        var planned = SortPlanner.Plan(candidates.Select(c => c.File).ToList(),
-            ExistingFoldersIn(folder, path), plan, clock.Now);
-        for (var i = 0; i < planned.Count; i++)
-        {
-            var (file, _, destination, plannedWait) = planned[i];
-            var fromDir = candidates[i].Dir;
-            // A sorted file has already settled once; editing it in place doesn't make it wait again.
-            var waitingUntil = fromDir == "" ? plannedWait : null;
-            var source = Path.Combine(path, fromDir, file.Name);
-            var typeDir = Path.Combine(path, destination);
+            var fromDir = move.From.Dir;
+            var source = move.From.Source(path);
+            var destDir = Path.Combine(path, move.Destination);
             try
             {
-                if (string.Equals(fromDir, destination, StringComparison.OrdinalIgnoreCase)) continue;
+                if (move.StaysPut) continue;
                 if (!File.Exists(source))
                 {
-                    log.Skipped(clock.Now, Show(source), "file no longer exists");
+                    log.Skipped(clock.Now, Logged(source), "file no longer exists");
                     skipped++;
                     continue;
                 }
-                if (waitingUntil != null)
+                if (move.WaitingUntil != null)
                 {
                     waiting++;
                     continue;
                 }
-                if (inUse.IsInUse(source))
+                if (IsBusy(move))
                 {
-                    log.Skipped(clock.Now, Show(source), "in use, will retry next run");
+                    log.Skipped(clock.Now, Logged(source), "in use, will retry next run");
                     skipped++;
                     continue;
                 }
-                var target = ResolveTarget(source, typeDir, out var identicalTo);
+                if (heldBack.Contains(move)) continue;
+                var target = ResolveTarget(source, destDir, out var identicalTo);
                 if (identicalTo != null)
                 {
-                    log.Duplicate(clock.Now, Show(source), Show(identicalTo));
+                    log.Duplicate(clock.Now, Logged(source), Logged(identicalTo));
                     duplicates++;
                     continue;
                 }
                 mover.Move(source, target);
-                log.Moved(clock.Now, Show(source), Show(target));
+                log.Moved(clock.Now, Logged(source), Logged(target));
                 moved++;
-                if (fromDir != "") RemoveIfSorterEmptied(path, fromDir, sorted);
+                if (move.From.IsSorted && sortPlan.Sorted.CreatedFolders.Contains(fromDir, StringComparer.OrdinalIgnoreCase))
+                    EmptyFolders.RemoveUpTo(Path.Combine(path, fromDir), path);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                log.Failed(clock.Now, Show(source), e.Message);
+                log.Failed(clock.Now, Logged(source), e.Message);
                 failed++;
             }
         }
@@ -86,27 +80,14 @@ public static class SortRun
         return new SortRunResult(runId, moved, duplicates, skipped, failed, waiting);
     }
 
-    /// <summary>The only deletion the sorter makes: a folder it created, left empty by a re-sort move.</summary>
-    static void RemoveIfSorterEmptied(string root, string relDir, SortedFiles sorted)
-    {
-        var dir = Path.Combine(root, relDir);
-        if (sorted.CreatedFolders.Contains(relDir, StringComparer.OrdinalIgnoreCase)
-            && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
-            Directory.Delete(dir);
-    }
-
-    internal static ExistingFolders ExistingFoldersIn(IFolderReader folder, string path) => new(
-        folder.ListSubfolderNames(Path.Combine(path, SortPlanner.TopicsFolder)),
-        folder.ListSubfolderNames(Path.Combine(path, SubjectClassifier.SchoolFolder)));
-
     /// <summary>First free name (Windows-style suffix), or the existing byte-identical file.</summary>
-    internal static string ResolveTarget(string source, string typeDir, out string? identicalTo, string? fileName = null)
+    internal static string ResolveTarget(string source, string destDir, out string? identicalTo, string? fileName = null)
     {
         identicalTo = null;
         fileName ??= Path.GetFileName(source);
         var name = Path.GetFileNameWithoutExtension(fileName);
         var ext = Path.GetExtension(fileName);
-        var candidate = Path.Combine(typeDir, name + ext);
+        var candidate = Path.Combine(destDir, name + ext);
         for (var n = 2; File.Exists(candidate); n++)
         {
             if (SameContent(source, candidate))
@@ -114,7 +95,7 @@ public static class SortRun
                 identicalTo = candidate;
                 return candidate;
             }
-            candidate = Path.Combine(typeDir, $"{name} ({n}){ext}");
+            candidate = Path.Combine(destDir, $"{name} ({n}){ext}");
         }
         return candidate;
     }

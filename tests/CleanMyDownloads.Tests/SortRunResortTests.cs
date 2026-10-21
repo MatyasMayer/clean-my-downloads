@@ -178,6 +178,65 @@ public sealed class SortRunResortTests : IDisposable
     }
 
     [Fact]
+    public void Topic_to_subject_resort_removes_the_emptied_topics_folder_too()
+    {
+        Put("ag1-notes.pdf");
+        Put("ag1-scan.pdf");
+        Sort("r1");
+        Put("bi-ag1-cv03.pdf");
+        Sort("r2");
+
+        Assert.False(Directory.Exists(P("Topics")));
+    }
+
+    [Fact]
+    public void A_sorted_file_is_not_pulled_into_a_topic_whose_new_sibling_is_still_waiting()
+    {
+        Put("costy-taxi_task-04.opp");
+        Sort("r1");
+        Put("costy-taxi_task-05.opp", when: clock.Now.AddHours(1));
+
+        var result = Sort("r2");
+
+        Assert.True(Has(@"OpenPonk\costy-taxi_task-04.opp"));
+        Assert.True(Has("costy-taxi_task-05.opp"));
+        Assert.False(Directory.Exists(P("Topics")));
+        Assert.Equal(0, result.Moved);
+    }
+
+    sealed class BusyEverything : IInUseCheck
+    {
+        public bool IsInUse(string path) => true;
+    }
+
+    [Fact]
+    public void A_sorted_file_is_not_pulled_into_a_topic_whose_new_sibling_is_in_use()
+    {
+        Put("costy-taxi_task-04.opp");
+        Sort("r1");
+        Put("costy-taxi_task-05.opp");
+
+        clock.Now = clock.Now.AddHours(1);
+        SortRun.Execute(new DiskFolderReader(), new DiskFileMover(), clock, log, downloads, runId: "r2", inUse: new BusyEverything());
+
+        Assert.True(Has(@"OpenPonk\costy-taxi_task-04.opp"));
+        Assert.False(Directory.Exists(P("Topics")));
+    }
+
+    [Fact]
+    public void Preview_lists_the_resort_moves_of_sorted_files()
+    {
+        Put("costy-taxi_task-04.opp");
+        Sort("r1");
+        Put("costy-taxi_task-05.opp");
+
+        var text = Preview.Build(new DiskFolderReader(), downloads, clock, logPath: log.Path);
+
+        Assert.Contains(@"OpenPonk\costy-taxi_task-04.opp -> Topics\costy-taxi", text);
+        Assert.Contains(@"costy-taxi_task-05.opp -> Topics\costy-taxi", text);
+    }
+
+    [Fact]
     public void Undo_reverts_the_resort_moves_of_the_last_run()
     {
         Put("costy-taxi_task-04.opp");

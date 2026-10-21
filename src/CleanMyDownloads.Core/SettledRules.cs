@@ -35,8 +35,7 @@ public static class SettledRules
     /// <summary>When the file becomes settled, or null if it already is.</summary>
     public static DateTime? WaitingUntil(FileEntry file, SettleWait wait, DateTime now)
     {
-        if (file.Created is null && file.Modified is null) return null;
-        var last = new[] { file.Created, file.Modified }.Max()!.Value;
+        if (file.LastTouched is not { } last) return null;
         var needed = Path.GetExtension(file.Name).Equals(".opp", StringComparison.OrdinalIgnoreCase)
             ? wait.Opp : wait.Normal;
         var until = last + needed;

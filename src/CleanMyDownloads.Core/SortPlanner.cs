@@ -13,6 +13,15 @@ public sealed record PlanOptions(TypeTable Types, SubjectClassifier Subjects, To
     public static PlanOptions Default { get; } =
         new(TypeTable.Default, SubjectClassifier.Default, TopicRules.Default, SettleWait.Default, TimeSpan.FromDays(1));
 
+    /// <summary>An explicit <paramref name="plan"/> wins; otherwise the defaults with any given part replaced.</summary>
+    internal static PlanOptions Resolve(PlanOptions? plan, TypeTable? types, SubjectClassifier? subjects, SettleWait? wait) =>
+        plan ?? Default with
+        {
+            Types = types ?? TypeTable.Default,
+            Subjects = subjects ?? SubjectClassifier.Default,
+            Wait = wait ?? SettleWait.Default,
+        };
+
     public static PlanOptions From(Settings s) =>
         new(s.Types, new SubjectClassifier(s.NotASubject), new TopicRules(s.GenericWords, s.LanguageTags),
             new SettleWait(s.SettleTime, s.OppSettleTime), s.LooseFileWait);
@@ -82,8 +91,8 @@ public static class SortPlanner
 
     static DateTime? LooseWaitingUntil(FileEntry file, TimeSpan wait, DateTime now)
     {
-        if (file.Created is null && file.Modified is null) return null;
-        var until = new[] { file.Created, file.Modified }.Max()!.Value + wait;
+        if (file.LastTouched is not { } last) return null;
+        var until = last + wait;
         return now >= until ? null : until;
     }
 
@@ -110,20 +119,27 @@ public static class SortPlanner
         foreach (var i in pending)
             (byStem.TryGetValue(string.Join('-', stems[i]!), out var l) ? l : byStem[string.Join('-', stems[i]!)] = []).Add(i);
 
-        var flatLength = (string s) => s.Replace("-", "").Length;
+        static int LengthWithoutHyphens(string s) => s.Replace("-", "").Length;
         var groups = new List<List<string>>();
-        foreach (var s in byStem.Keys.OrderBy(flatLength))
+        foreach (var stem in byStem.Keys.OrderBy(LengthWithoutHyphens))
         {
-            var words = s.Split('-');
-            var group = groups.FirstOrDefault(g => g.Any(k => TopicRules.SameTopic(k.Split('-'), words)));
-            if (group != null) group.Add(s); else groups.Add([s]);
+            var words = stem.Split('-');
+            // A stem can bridge groups that don't match each other: merge every group it matches.
+            var matching = groups.Where(g => g.Any(k => TopicRules.SameTopic(k.Split('-'), words))).ToList();
+            if (matching.Count == 0) { groups.Add([stem]); continue; }
+            foreach (var other in matching.Skip(1))
+            {
+                matching[0].AddRange(other);
+                groups.Remove(other);
+            }
+            matching[0].Add(stem);
         }
         foreach (var group in groups)
         {
             var members = group.SelectMany(k => byStem[k]).ToList();
             if (members.Count < 2) continue;
-            var shortest = flatLength(group[0]);
-            var name = group.Where(k => flatLength(k) == shortest)
+            var shortest = group.Min(LengthWithoutHyphens);
+            var name = group.Where(k => LengthWithoutHyphens(k) == shortest)
                 .OrderByDescending(k => byStem[k].Count).ThenByDescending(k => k.Split('-').Length)
                 .ThenBy(k => k, StringComparer.Ordinal).First();
             foreach (var i in members) topicOf[i] = name;
