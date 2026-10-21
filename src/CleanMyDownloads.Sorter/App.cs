@@ -13,7 +13,7 @@ public static class App
         IFileMover? mover = null, string? logPath = null,
         SettingsStore? settingsStore = null, Action<string>? reportInvalidSettings = null)
     {
-        if (args.Length == 0 || args[0] is not ("--preview" or "--sort"))
+        if (args.Length == 0 || args[0] is not ("--preview" or "--sort" or "--undo"))
             return 2;
         var loaded = (settingsStore ?? new SettingsStore(SettingsStore.DefaultPath)).Load();
         if (loaded is SettingsResult.Invalid invalid)
@@ -28,7 +28,12 @@ public static class App
         var subjects = new SubjectClassifier(settings.NotASubject);
         if (args[0] == "--preview")
         {
-            viewer.Show(Preview.Build(folder, path, clock, settings.Types, subjects));
+            viewer.Show(Preview.Build(folder, path, clock, settings.Types, subjects: subjects));
+            return 0;
+        }
+        if (args[0] == "--undo")
+        {
+            UndoRun.Execute(mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path);
             return 0;
         }
         SortRun.Execute(folder, mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path, settings.Types, subjects: subjects);

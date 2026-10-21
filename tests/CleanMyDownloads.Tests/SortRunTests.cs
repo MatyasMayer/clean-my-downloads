@@ -38,6 +38,8 @@ public sealed class SortRunTests : IDisposable
         var p = Path.Combine(downloads, rel);
         Directory.CreateDirectory(Path.GetDirectoryName(p)!);
         File.WriteAllText(p, content);
+        File.SetCreationTime(p, new DateTime(2026, 1, 1));
+        File.SetLastWriteTime(p, new DateTime(2026, 1, 1));
         return p;
     }
 

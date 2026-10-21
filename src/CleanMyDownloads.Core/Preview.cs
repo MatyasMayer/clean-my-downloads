@@ -5,9 +5,10 @@ namespace CleanMyDownloads.Core;
 /// <summary>SPEC section 6: Preview sort. Pure read; never touches the folder.</summary>
 public static class Preview
 {
-    public static string Build(IFolderReader folder, string path, IClock clock, TypeTable? types = null,
+    public static string Build(IFolderReader folder, string path, IClock clock, TypeTable? types = null, SettleWait? wait = null,
         SubjectClassifier? subjects = null)
     {
+        wait ??= SettleWait.Default;
         types ??= TypeTable.Default;
         subjects ??= SubjectClassifier.Default;
         var sb = new StringBuilder();
@@ -16,7 +17,11 @@ public static class Preview
         if (files.Count == 0)
             sb.Append("(no files to sort)\r\n");
         foreach (var f in files)
-            sb.Append($"{f.Name} -> {subjects.DestinationFor(f.Name) ?? types.FolderFor(f.Name)}\r\n");
+        {
+            var until = SettledRules.WaitingUntil(f, wait, clock.Now);
+            var dest = until is { } u ? $"waiting until {u:yyyy-MM-dd HH:mm}" : subjects.DestinationFor(f.Name) ?? types.FolderFor(f.Name);
+            sb.Append($"{f.Name} -> {dest}\r\n");
+        }
         return sb.ToString();
     }
 }
