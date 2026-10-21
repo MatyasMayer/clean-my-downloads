@@ -1,6 +1,6 @@
 # clean-my-downloads
 
-A small personal Windows 11 tool that keeps `C:\Users\<you>\Downloads` tidy. It sorts files by **subject → topic → type**, never deletes anything, and can undo its last run. It runs hourly in the background and shows no window.
+A small personal Windows 11 tool that keeps `C:\Users\<you>\Downloads` tidy. It sorts files by **subject → topic → type**, never overwrites a file, recycles only byte-identical duplicates (kept 30 days in its own Trash), and can undo its last run. It runs hourly in the background and shows no window.
 
 - Behaviour: [SPEC.md](SPEC.md)
 - Vocabulary: [GLOSSARY.md](GLOSSARY.md)

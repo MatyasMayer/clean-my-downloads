@@ -114,15 +114,31 @@ Time is measured from the **later of the created and modified times**.
 
 ([What safety net does a sort need?](https://github.com/MatyasMayer/clean-my-downloads/issues/4))
 
-- **Move only:** the sorter never deletes, overwrites or edits a file.
+- **Move only:** the sorter never overwrites or edits a file. It deletes only by moving duplicates to its own Trash (section 6.1) and purging that Trash after 30 days. ([ADR-0001](docs/adr/0001-duplicates-go-to-sorter-trash.md))
 - **Collision, different content:** the moved file gets a Windows-style suffix, `zadani (2).pdf`.
-- **Collision, byte-identical content:** the file is not moved. It stays put and the duplicate is logged.
+- **Collision, byte-identical content:** the incoming file is a **duplicate** and goes to the Trash (section 6.1).
 - **A failed move** (in use, permission denied, disk error) is skipped and logged, the run carries on, and the move is retried next run.
 - **The move log** is in `%LOCALAPPDATA%\clean-my-downloads\`. It's human-readable, one line per move, and also records skips, failures and duplicates:
   `2026-10-21 14:00  Downloads\bi-ag1-cv03.pdf → Downloads\School\BI-AG1\bi-ag1-cv03.pdf`
-- **Undo last run** moves everything from the most recent run back. It skips and reports files moved or deleted since then. Older runs can be undone by hand from the log.
-- **Preview sort** lists what would move, and which files are *waiting until <date>*, without moving anything.
+- **Undo last run** moves everything from the most recent run back, including files it sent to the Trash. It skips and reports files moved or deleted since then. Older runs can be undone by hand from the log.
+- **Preview sort** lists what would move, what would be recycled (*would recycle X, keeping Y*), and which files are *waiting until <date>*, without changing anything.
 - Normal runs never ask for confirmation.
+
+### 6.1 Duplicates
+
+([ADR-0001](docs/adr/0001-duplicates-go-to-sorter-trash.md))
+
+Dedupe is a step of every **run**, before any file is moved. It is on unless `dedupe` is `false` in settings.
+
+- **Candidates:** two files are compared only when they have the same extension and either
+  - the same **stem** (topic and loose files), or
+  - the same name apart from a copy suffix: Windows `(1)`, browser `-1`, or ` - Copy`. This is the only rule for files with a subject code, which have no stem.
+- **Where it looks:** the same files as section 2 (top-level Downloads and **sorted files**). Both the file to recycle and the file to keep must be **settled**; otherwise the pair waits for a later run.
+- **Match test:** equal size, then equal SHA-256 of the contents. A name alone never makes a duplicate. Empty (0-byte) files are never duplicates.
+- **Survivor:** among identical files, keep the one in a subject or topic folder; then the oldest by created time; then the shorter name. With three or more copies, all but the survivor are recycled.
+- **Recycling:** a duplicate is moved to `%LOCALAPPDATA%\clean-my-downloads\Trash\<runId>\`, keeping its name (suffixed on a clash inside the Trash). Trash runs older than 30 days are purged at the start of a run; that is the only permanent deletion the sorter does.
+- **Log:** `2026-10-21 14:00  RECYCLED  Downloads\zadani (1).pdf  (same content as Downloads\School\BI-AG1\zadani.pdf)`. It replaces the old `DUPLICATE` line.
+- **Undo:** Undo last run moves recycled files back to their original path, with the usual collision rules (suffix if the content differs, skip if identical).
 
 ## 7. Runs and notifications
 
@@ -130,7 +146,7 @@ Time is measured from the **later of the created and modified times**.
 
 - **Hourly** via Task Scheduler. Missed runs are caught up as soon as possible, and runs happen on battery too. The sorter starts, sorts and exits, so nothing stays resident.
 - **Manual run:** the **Sort now** shortcut starts the same run.
-- **No window ever.** A Windows notification appears only when a run moved 3 or more files, or when the settings file is invalid.
+- **No window ever.** A Windows notification appears only when a run moved or recycled 3 or more files in total, or when the settings file is invalid.
 
 ## 8. Settings
 
@@ -141,7 +157,9 @@ Time is measured from the **later of the created and modified times**.
 - the language tags,
 - the extension → type-folder mapping,
 - the "not a subject" list,
-- the wait times (3 h, 24 h for `.opp`, 1 day for loose files).
+- the wait times (3 h, 24 h for `.opp`, 1 day for loose files),
+- `dedupe` (default `true`),
+- the number of days the Trash is kept (default 30).
 
 Install writes the defaults above. If the file is invalid, the run is skipped and a notification says what's wrong; the sorter never silently falls back to defaults.
 

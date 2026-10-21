@@ -34,3 +34,11 @@ _Avoid_: managed file, tracked file
 
 **Settled file**
 A file that is not in use and has not changed for a set time. Only settled files are sorted; unsettled files wait for a later run.
+
+**Duplicate**
+A settled file with byte-identical content (same SHA-256) to another settled file of the same extension whose name is similar: the same **stem**, or the same name apart from a copy suffix like `(1)`. Of a set of duplicates the sorter keeps one (the **survivor**) and sends the rest to the **Trash**. Empty files are never duplicates.
+_Avoid_: copy, dupe
+
+**Trash**
+The sorter's own holding folder in `%LOCALAPPDATA%\clean-my-downloads\Trash\`, where duplicates go instead of being deleted. Undo can restore from it; runs older than 30 days are purged.
+_Avoid_: Recycle Bin (that is Windows'; the sorter does not use it)
