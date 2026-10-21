@@ -16,7 +16,7 @@ _Avoid_: prefix, base name
 A word that says what kind of file it is rather than what it's about (`task`, `ukol`, `zadani`, `screenshot`, `img`, …). It ends a stem. The user keeps the list and adds to it over time.
 
 **Type**
-The broad kind of a file (video, PDF, image, OpenPonk model, …), judged by its extension. Used for sorting when a file belongs to no subject and no topic.
+The broad kind of a file (video, PDF, image, OpenPonk model, …), judged by its extension. A file whose extension matches no type has the type **Other**. Used for sorting when a file belongs to no subject and no topic.
 _Avoid_: format, extension (an extension is how the type is detected, not the type itself)
 
 **Loose file**
