@@ -7,12 +7,16 @@ public static class SortRun
 {
     public static SortRunResult Execute(IFolderReader folder, IFileMover mover, IClock clock, MoveLog log,
         string path, TypeTable? types = null, string? runId = null,
-        IInUseCheck? inUse = null, SettleWait? wait = null, SubjectClassifier? subjects = null)
+        IInUseCheck? inUse = null, SettleWait? wait = null, SubjectClassifier? subjects = null,
+        PlanOptions? plan = null)
     {
         inUse ??= new DiskInUseCheck();
-        wait ??= SettleWait.Default;
-        types ??= TypeTable.Default;
-        subjects ??= SubjectClassifier.Default;
+        plan ??= PlanOptions.Default with
+        {
+            Types = types ?? TypeTable.Default,
+            Subjects = subjects ?? SubjectClassifier.Default,
+            Wait = wait ?? SettleWait.Default,
+        };
         runId ??= Guid.NewGuid().ToString("N")[..8];
         var shown = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
         string Show(string full) => Path.Combine(shown, Path.GetRelativePath(path, full));
@@ -20,10 +24,13 @@ public static class SortRun
         int moved = 0, duplicates = 0, skipped = 0, failed = 0, waiting = 0;
         log.RunStart(clock.Now, runId);
 
-        foreach (var file in folder.ListTopLevelFiles(path).Where(f => !IgnoreRules.IsIgnored(f)))
+        var placements = SortPlanner.Plan(
+            folder.ListTopLevelFiles(path).Where(f => !IgnoreRules.IsIgnored(f)).ToList(),
+            ExistingFoldersIn(folder, path), plan, clock.Now);
+        foreach (var (file, _, destination, waitingUntil) in placements)
         {
             var source = Path.Combine(path, file.Name);
-            var typeDir = Path.Combine(path, subjects.DestinationFor(file.Name) ?? types.FolderFor(file.Name));
+            var typeDir = Path.Combine(path, destination);
             try
             {
                 if (!File.Exists(source))
@@ -32,7 +39,7 @@ public static class SortRun
                     skipped++;
                     continue;
                 }
-                if (SettledRules.WaitingUntil(file, wait, clock.Now) != null)
+                if (waitingUntil != null)
                 {
                     waiting++;
                     continue;
@@ -64,6 +71,10 @@ public static class SortRun
         log.RunEnd(clock.Now, runId);
         return new SortRunResult(runId, moved, duplicates, skipped, failed, waiting);
     }
+
+    internal static ExistingFolders ExistingFoldersIn(IFolderReader folder, string path) => new(
+        folder.ListSubfolderNames(Path.Combine(path, SortPlanner.TopicsFolder)),
+        folder.ListSubfolderNames(Path.Combine(path, SubjectClassifier.SchoolFolder)));
 
     /// <summary>First free name (Windows-style suffix), or the existing byte-identical file.</summary>
     internal static string ResolveTarget(string source, string typeDir, out string? identicalTo, string? fileName = null)

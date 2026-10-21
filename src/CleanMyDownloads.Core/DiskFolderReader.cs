@@ -11,4 +11,9 @@ public sealed class DiskFolderReader : IFolderReader
                 f.CreationTime,
                 f.LastWriteTime))
             .ToList();
+
+    public IReadOnlyList<string> ListSubfolderNames(string path) =>
+        Directory.Exists(path)
+            ? new DirectoryInfo(path).EnumerateDirectories().Select(d => d.Name).ToList()
+            : [];
 }

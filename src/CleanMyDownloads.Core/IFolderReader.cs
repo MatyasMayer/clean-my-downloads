@@ -4,4 +4,7 @@ namespace CleanMyDownloads.Core;
 public interface IFolderReader
 {
     IReadOnlyList<FileEntry> ListTopLevelFiles(string path);
+
+    /// <summary>Names of the folders directly inside the given path; empty when it does not exist.</summary>
+    IReadOnlyList<string> ListSubfolderNames(string path) => [];
 }

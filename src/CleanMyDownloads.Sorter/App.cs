@@ -26,10 +26,10 @@ public static class App
         var path = args.Length > 1
             ? args[1]
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-        var subjects = new SubjectClassifier(settings.NotASubject);
+        var plan = PlanOptions.From(settings);
         if (args[0] == "--preview")
         {
-            viewer.Show(Preview.Build(folder, path, clock, settings.Types, subjects: subjects));
+            viewer.Show(Preview.Build(folder, path, clock, plan: plan));
             return 0;
         }
         if (args[0] == "--undo")
@@ -37,7 +37,7 @@ public static class App
             UndoRun.Execute(mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path);
             return 0;
         }
-        var result = SortRun.Execute(folder, mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path, settings.Types, subjects: subjects);
+        var result = SortRun.Execute(folder, mover ?? new DiskFileMover(), clock, new MoveLog(logPath ?? MoveLog.DefaultPath), path, plan: plan);
         if (result.Moved >= NotifyThreshold)
             notifier?.Notify("Clean my downloads", $"Sorted {result.Moved} files.");
         return 0;
