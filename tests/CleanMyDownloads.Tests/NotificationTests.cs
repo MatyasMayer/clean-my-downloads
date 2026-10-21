@@ -22,7 +22,13 @@ public sealed class NotificationTests : IDisposable
     {
         var downloads = Path.Combine(root, "dl");
         Directory.CreateDirectory(downloads);
-        for (var i = 0; i < count; i++) File.WriteAllText(Path.Combine(downloads, $"pic{i}.png"), "x" + i);
+        for (var i = 0; i < count; i++)
+        {
+            var p = Path.Combine(downloads, $"pic{i}.png");
+            File.WriteAllText(p, "x" + i);
+            File.SetCreationTime(p, new DateTime(2026, 1, 1));
+            File.SetLastWriteTime(p, new DateTime(2026, 1, 1));
+        }
         App.Run(["--sort", downloads], new DiskFolderReader(), new SystemClock(), new NoViewer(),
             logPath: Path.Combine(root, "log.txt"), settingsStore: new SettingsStore(Path.Combine(root, "s", "settings.json")),
             notifier: notifier);
